@@ -1,0 +1,37 @@
+<a ng-href="{{vm.result.url}}" alt="{{vm.result.name}}" title="{{vm.result.name}}">
+    <img class="img-responsive" ng-src="{{vm.result.image}}" alt="{{vm.result.name}}" title="{{vm.result.name}}" />
+</a>
+<div class="card clearfix">
+    <a ng-href="{{vm.result.url}}" alt="{{vm.result.name}}" title="{{vm.result.name}}">
+        <h4 class="typewriter title h1">{{vm.result.name}}</h4>
+    </a>
+    <div class="info">
+        <div class="col-xs-6">
+            <div class="map">
+                <a ng-href="{{vm.result.mapLink}}" target="_blank"><img class="img-responsive" ng-src="{{vm.result.map}}"/></a>
+            </div>
+        </div>
+        <div class="col-xs-6">
+            <div class="address">
+                <div class="street-block">
+                    <div class="thoroughfare">{{vm.result.address.thoroughfare}}</div>
+                </div>
+                <div class="addressfield-container-inline locality-block country-US">
+                    <span class="locality">{{vm.result.address.locality}}</span>
+                    ,
+                    <span class="state">{{vm.result.address.administrative_area}}</span>
+                    <span class="postal-code">{{vm.result.address.postal_code}}</span>
+                </div>
+            </div>
+            <div class="phone">{{vm.result.phone}}</div>
+            <div class="social">
+                <a ng-href="{{vm.result.social.url}}" title="Website" target="_blank" class="btn-sm btn-block btn-social btn-website">
+                    <span class="icon icon-website"></span> Website
+                </a>
+            </div>
+        </div>
+        <div class="col-xs-12">
+            <div><a class="more-button" ng-href="{{vm.result.url}}"><span>Learn more...</span></a></div>
+        </div>
+    </div>
+</div>

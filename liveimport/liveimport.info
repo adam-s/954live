@@ -1,0 +1,3 @@
+name = Live import
+description = Imports events from battle
+core = 7.x

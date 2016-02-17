@@ -1,0 +1,284 @@
+<?php
+
+/**
+ * Implements HOOK_menu()
+ */
+function liveimport_menu() {
+    return array(
+        'import' => array(
+            'page callback' => 'liveimport_import',
+            'access arguments' => array('access content'),
+        )
+    );
+}
+
+function liveimport_import() {
+    $resource =  'http://localhost:3000/api/events';
+    $data = drupal_http_request($resource);
+    $events = drupal_json_decode($data->data)['data'];
+
+    foreach($events as $delta => $event) {
+        $importer = new EventImporter($event);
+        // build artist and add to event
+    }
+}
+
+class NodeImporter {
+    public static function nodeExists ($title, $bundle) {
+        $query = new EntityFieldQuery();
+        $query->entityCondition('entity_type', 'node')
+            ->entityCondition('bundle', array($bundle))
+            ->propertyCondition('title', $title . '%', 'like');
+
+        $result = $query->execute();
+
+        if (!empty($result)) {
+            $node = node_load(array_keys($result['node'])[0]);
+            return entity_metadata_wrapper('node', $node);
+        } else {
+            return false;
+        }
+    }
+
+    public static function findGenres ($term) {
+        $query = new EntityFieldQuery();
+        $query->entityCondition('entity_type', 'taxonomy_term')
+            ->entityCondition('bundle', 'genres')
+            ->propertyCondition('name', $term. '%', 'LIKE');
+
+        $result = $query->execute();
+        return $result;
+    }
+
+    public static function importImage ($image_source_path) {
+        $url = 'http://localhost:3000/' . drupal_encode_path($image_source_path);
+        $directory = file_build_uri('/import/');
+        $file = system_retrieve_file($url, $directory, TRUE, FILE_EXISTS_REPLACE);
+        return $file;
+    }
+}
+
+class EventImporter {
+
+    public $event;
+
+    public $wrapper;
+
+    public function __construct($event) {
+        $this->event = $event;
+        $this->wrapEvent();
+        $this->addProperties();
+        $this->wrapper->save();
+    }
+
+    public function wrapEvent() {
+        $new_node = entity_create('node', array('type' => 'events'));
+        $this->wrapper = entity_metadata_wrapper('node', $new_node);
+    }
+
+    public function addProperties() {
+        $this->setAuthor();
+        $this->setTitle();
+        $this->setDate();
+        $this->addArtists();
+        $this->addVenue();
+    }
+
+    public function setAuthor() {
+        $this->wrapper->author = 1;
+    }
+
+    public function setTitle() {
+        $this->wrapper->title = $this->event['name'];
+    }
+
+    public function setDate() {
+        $date = strtotime($this->event['date']);
+        $this->wrapper->field_date->set($date);
+    }
+
+    public function addArtists() {
+        $artistIds = array();
+        foreach($this->event['artists'] as $delta => $value) {
+            $artist = new ArtistImport($value);
+            $artistIds[] = $artist->getId();
+        }
+        $this->wrapper->field_artists = $artistIds;
+    }
+
+    public function addVenue() {
+        $venue = new VenueImport($this->event['venue']);
+        $venueId = $venue->getId();
+
+        $this->wrapper->field_venue = $venueId;
+    }
+
+}
+
+class ArtistImport {
+    public $artist;
+
+    public $wrapper;
+
+    public function __construct($artist) {
+        $this->artist = $artist;
+        // if exists add wrapper and return this else set properties and things
+        if ($wrapper = NodeImporter::nodeExists($this->artist['name'], 'artists')) {
+            $this->wrapper = $wrapper;
+        } else {
+            $this->wrapArtist();
+            $this->addProperties();
+            $this->wrapper->save();
+        }
+    }
+
+    public function getId () {
+        return  $this->wrapper->getIdentifier();
+    }
+
+    public function wrapArtist() {
+        $new_node = entity_create('node', array('type' => 'artists'));
+        $this->wrapper = entity_metadata_wrapper('node', $new_node);
+    }
+
+    public function addProperties() {
+        $this->setAuthor();
+        $this->setTitle();
+        $this->setBody();
+        $this->setGenres();
+        $this->setFile();
+        $this->setLinks();
+        $this->setYoutube();
+    }
+
+    public function setAuthor() {
+        $this->wrapper->author = 1;
+    }
+
+    public function setTitle() {
+        // Title
+        $this->wrapper->title = $this->artist['name'];
+    }
+
+    public function setBody() {
+        if(!empty($this->artist['body'])) {
+            $this->wrapper->field_about = $this->artist['body'];
+        }
+    }
+
+    public function setGenres() {// field_genres
+        $tids = array();
+        foreach($this->artist['genres'] as $delta => $genre) {
+            $result = NodeImporter::findGenres($genre);
+            if (!empty($result)) {
+                $tids[] = array_keys($result['taxonomy_term'])[0];
+            }
+        }
+        $this->wrapper->field_genres->set($tids);
+    }
+
+    public function setFile() {
+        // field_file
+        if ($path = $this->artist['images']['original']) {
+            $file = NodeImporter::importImage($path);
+            $this->wrapper->field_image->file = $file;
+        }
+    }
+
+    public function setLinks() {
+        $links = array_intersect_key($this->artist['links'], variable_get('socialfield_services'));
+        $links_array = array();
+        foreach($links as $service => $url) {
+            $links_array[] = array('service' => $service, 'url' => $url);
+        }
+        $this->wrapper->field_social = $links_array;
+    }
+
+    public function setYoutube() {
+        // youtube
+        $this->wrapper->field_youtube = array();
+        foreach($this->artist['videos'] as $link) {
+            $this->wrapper->field_youtube[] = array('input' => 'http://www.youtube.com/watch?v=' . $link, 'video_id' => $link);
+        }
+    }
+}
+
+class VenueImport {
+    public $venue;
+
+    public $wrapper;
+
+    public function __construct($venue) {
+        $this->venue = $venue;
+        // if exists add wrapper and return this else set properties and things
+        if ($wrapper = NodeImporter::nodeExists($this->venue['name'], 'venues')) {
+            $this->wrapper = $wrapper;
+        } else {
+            $this->wrapVenue();
+            $this->addProperties();
+            $this->wrapper->save();
+        }
+    }
+
+    public function getId () {
+        return  $this->wrapper->getIdentifier();
+    }
+
+    public function wrapVenue() {
+        $new_node = entity_create('node', array('type' => 'venues'));
+        $this->wrapper = entity_metadata_wrapper('node', $new_node);
+    }
+
+    public function addProperties() {
+        $this->setAuthor();
+        $this->setTitle();
+        $this->setBody();
+        $this->setFile();
+        $this->setLinks();
+        $this->setPhone();
+        $this->setAddress();
+    }
+
+    public function setAuthor() {
+        $this->wrapper->author = 1;
+    }
+
+    public function setTitle() {
+        // title
+        $this->wrapper->title = $this->venue['name'];
+    }
+
+    public function setBody() {
+        if (!empty($this->venue['body'])) {
+            $this->wrapper->field_about = $this->venue['body'];
+        }
+    }
+
+    public function setFile() {
+        if ($path = $this->venue['images']['original']) {
+            $file = NodeImporter::importImage($path);
+            $this->wrapper->field_image->file = $file;
+        }
+    }
+
+    public function setLinks() {
+        // link
+        $this->wrapper->field_social = array( array('service' => 'website', 'url' => $this->venue['website']));
+    }
+
+    public function setPhone() {
+        // phone
+        if (!empty($this->venue['phone'])) {
+            $this->wrapper->field_phone = $this->venue['phone'];
+        }
+    }
+
+    public function setAddress() {
+        // address
+        $this->wrapper->field_address->thoroughfare =$this->venue['address']['address1'];
+        $this->wrapper->field_address->locality = $this->venue['address']['city'];
+        $this->wrapper->field_address->administrative_area = 'FL';
+        $this->wrapper->field_address->country = $this->venue['address']['country'];
+        $this->wrapper->field_address->postal_code = $this->venue['address']['zipcode'];
+    }
+}

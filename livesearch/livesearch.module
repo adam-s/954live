@@ -1,0 +1,55 @@
+<?php
+/**
+ * @link http://www.sitepoint.com/kickstart-your-angularjs-development-with-yeoman-grunt-and-bower/
+ */
+
+/**
+ * Implements HOOK_menu()
+ */
+
+function livesearch_menu() {
+    return array(
+        'search' => array(
+            'title' => 'Search',
+            'page callback' => 'livesearch_search',
+            'access arguments' => array('access content'),
+            'type' => MENU_SUGGESTED_ITEM,
+        )
+    );
+}
+
+/**
+ * @link http://www.sitepoint.com/angularjs-drupal-apps/
+ */
+function livesearch_search(){
+    $path = drupal_get_path('module', 'livesearch');
+
+    $element = array(
+        '#theme' => 'livesearch_search',
+        '#attached' => array(
+            'js' => array(
+                $path . '/livesearch/dist/vendor.js',
+                $path . '/livesearch/dist/livesearch.js',
+                'https://www.youtube.com/iframe_api',
+            ),
+            'css' => array(
+                $path . '/livesearch/src/bower_components/angucomplete-alt/angucomplete-alt.css'
+            ),
+        )
+    );
+
+    return $element;
+}
+
+/**
+ * Implements HOOK_theme
+ */
+function livesearch_theme($existing, $type, $theme, $path){
+    return array(
+        'livesearch_search' => array(
+            'template' => 'livesearch-search-index',
+            'path' => $path . '/livesearch',
+            'variables' => array(),
+        )
+    );
+}

@@ -1,0 +1,50 @@
+<div class="search-form">
+    <form ng-submit="">
+        <div class="row">
+            <div class="col-md-12">
+                <div class="clearfix">
+                    <div class="pull-right">
+                        <label class="radio-inline">
+                            <input name="type" id="genres" value="genres" type="radio" ng-model="vm.bundle">Genres
+                        </label>
+                        <label class="radio-inline">
+                            <input name="type" id="artists" value="artists" type="radio" ng-model="vm.bundle">Artists
+                        </label>
+                        <label class="radio-inline">
+                            <input name="type" id="venues" value="venues" type="radio" ng-model="vm.bundle">Venues
+                        </label>
+                    </div>
+                </div>
+                <div class="input-group" ng-class="{'focus': focus}">
+                    <span class="input-group-addon">
+                        <label class="glyphicon glyphicon-search" rel="tooltip" title="Search"></label>
+                    </span>
+                    <div class="{{vm.bundle}}">
+                        <angucomplete-alt ng-show="vm.bundle == 'artists' || vm.bundle == 'venues'"
+                                          placeholder="Search..."
+                                          input-class="form-control"
+                                          minlength="1"
+                                          selected-object="vm.selectedObject"
+                                          title-field="name"
+                                          image-field="image"
+                                          remote-api-handler="vm.list"
+                                          focus-in="focus = true"
+                                          focus-out="focus = false"></angucomplete-alt>
+                        <angucomplete-alt ng-show="vm.bundle == 'genres'"
+                                          placeholder="Search..."
+                                          input-class="form-control"
+                                          minlength="1"
+                                          selected-object="vm.selectedGenresObject"
+                                          title-field="name"
+                                          remote-api-handler="vm.listGenres"
+                                          focus-in="focus = true"
+                                          focus-out="focus = false"></angucomplete-alt>
+                    </div>
+
+                </div>
+            </div>
+            <div class="col-md-3">
+            </div>
+        </div>
+    </form>
+</div>

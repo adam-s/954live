@@ -1,0 +1,35 @@
+<a ng-href="{{vm.result.url}}" alt="{{vm.result.name}}" title="{{vm.result.name}}">
+    <img class="img-responsive" ng-src="{{vm.result.image}}" alt="{{vm.result.name}}" title="{{vm.result.name}}" />
+</a>
+<div class="card clearfix">
+    <a ng-href="{{vm.result.url}}" alt="{{vm.result.name}}" title="{{vm.result.name}}">
+        <h4 class="typewriter title h1">{{vm.result.name}}</h4>
+    </a>
+    <div class="info col-sm-6">
+        <div class="social">
+            <a ng-repeat="social in vm.result.social"
+               title="{{social.name}}"
+               target="_blank"
+               ng-href="{{social.url}}"
+               class="btn btn-social-icon btn-{{social.service}}">
+                <i class="icon icon-{{social.service}}"></i>
+            </a>
+        </div>
+        <div ng-if="vm.result.genres" class="genres">
+            <span class="typewriter pull-left">#genres</span>
+            <ul class="list-inline genres">
+                <li ng-repeat="genre in vm.result.genres">
+                    <span class="red-highlight">//</span>
+                    <a ng-href="{{genre.path}}">{{genre.name}}</a>
+                </li>
+            </ul>
+        </div>
+        <div><a class="more-button" ng-href="{{vm.result.url}}"><span>Learn more...</span></a></div>
+        <div class="clearfix visible-xs margin-bottom-10"></div>
+    </div>
+    <div class="youtube col-sm-6 col-xs-12">
+        <div class="embed-responsive embed-responsive-16by9">
+            <youtube-video class="embed-responsive-item" video-id="vm.result.youtube"></youtube-video>
+        </div>
+    </div>
+</div>

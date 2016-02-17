@@ -1,0 +1,3 @@
+name = liveads
+description = Ad manager for 954live
+core = 7.x

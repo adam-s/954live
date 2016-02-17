@@ -1,0 +1,24 @@
+{
+  "name": "livesearch",
+  "description": "Search module for the 954live project",
+  "main": "index.html",
+  "authors": [
+    "Adam S"
+  ],
+  "license": "ISC",
+  "moduleType": [],
+  "homepage": "",
+  "private": true,
+  "ignore": [
+    "**/.*",
+    "node_modules",
+    "bower_components",
+    "test",
+    "tests"
+  ],
+  "dependencies": {
+    "angucomplete-alt": "~2.2.0",
+    "angular-youtube-mb": "~1.1.1",
+    "angular": "~1.5.0"
+  }
+}

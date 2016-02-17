@@ -1,0 +1,351 @@
+<?php
+/**
+ * TODO: front page, event entity, artist entity, venue entity, taxonomy term entity
+ */
+
+/**
+ *
+ */
+function livesource_query_restful_events_alter(QueryAlterableInterface $query) {
+    //um... the wrong alias name is given here. It should be node.nid
+    $query->groupBy('field_data_field_date0.entity_id');
+}
+/**
+ * Implements HOOK_menu_alter()
+ * @param $items
+ */
+function livesource_menu_alter (&$items) {
+    $path = 'taxonomy/term/%taxonomy_term';
+    $items[$path]['page callback'] = 'livesource_term_page';
+    $items[$path]['file'] = 'livesource.module';
+    $items[$path]['file path'] = drupal_get_path('module', 'livesource');
+
+    $path = 'node';
+    $items[$path]['page callback'] = 'livesource_page_default';
+    $items[$path]['file'] = 'livesource.module';
+    $items[$path]['file path'] = drupal_get_path('module', 'livesource');
+}
+
+/**
+ * Implements HOOK_menu()
+ */
+function livesource_menu() {
+    $items['api/livesource-infinity'] = array(
+        'page callback' => 'livesource_infinity',
+        'access arguments' => array('access content'),
+        'type' => MENU_CALLBACK,
+    );
+
+    return $items;
+}
+
+/**
+ * Callback for infinity scroll
+ */
+function livesource_infinity() {
+    $searchQuery = drupal_get_query_parameters();
+    $range = 10;
+    $page = isset($searchQuery['page']) ? $searchQuery['page'] : 1;
+    $tid = isset($searchQuery['tid']) ? $searchQuery['tid'] : NULL;
+
+    $query = new \Drupal\livesource\views\QueryBuilder();
+    $query->setRange($range);
+    $query->setPage($page);
+    $query->setDateFilter();
+    $query->setSort('date');
+
+
+    if ($tid) {
+        $query->setIdFilter('artists.genres', $tid);
+        $query->setType('genres')->setId(tid);
+        $style = new \Drupal\livesource\views\GenresStyle($query);
+    } else {
+        $style = new \Drupal\livesource\views\DefaultStyle($query);
+    }
+
+    $formatter = new \Drupal\livesource\views\EventFormatter($style);
+    $results = $formatter->formattedResults();
+
+    $more = empty($results) ? false : true;
+
+    $output = array(
+        'more' => $more,
+        'page' => intval($page),
+        'range' => $range,
+        'data' => drupal_render($results),
+    );
+
+    drupal_json_output($output);
+}
+
+/**
+ * @param $term
+ * @return string
+ */
+function livesource_term_page ($term) {
+
+    $date = new DateTime();
+    $query = new \Drupal\livesource\views\QueryBuilder();
+    $query->setRange(10);
+    $query->setPage(1);
+    $query->setDateFilter();
+    $query->setSort('date');
+    $query->setIdFilter('artists.genres', $term->tid);
+    $query->setType('genres')->setId($term->tid);
+
+    $style = new \Drupal\livesource\views\MicrodataStyle($query);
+    $formatter = new \Drupal\livesource\views\EventFormatter($style);
+    $formatter->formattedResults();
+
+    $style = new \Drupal\livesource\views\GenresStyle($query);
+    $formatter = new \Drupal\livesource\views\EventFormatter($style);
+    $results = $formatter->formattedResults();
+
+    $build = array();
+    $build['#type'] = 'container';
+    $build['#attached']['js'][] = drupal_get_path('module', 'livesource') . '/js/livesource-infinity.js';
+    $build['content']['#type'] = 'container';
+    $build['content']['events'] = $results;
+    $build['content']['#attributes']['class'] = 'livesource-infinity';
+    $build['content']['#attributes']['data-tid'] = $term->tid;
+    $build['loader'] = array('#markup' => theme('live_loader'));
+
+    // Node to load entity and call module_invoke_all to trigger metatags
+    $langcode = $GLOBALS['language_content']->language;
+    $view_mode = 'full';
+
+    module_invoke_all('entity_view', $term, 'taxonomy_term', $view_mode, $langcode);
+
+    return $build;
+}
+
+/**
+ * Front page
+ *
+ * @return string
+ * @link http://stackoverflow.com/questions/13129817/getting-a-timestamp-for-today-at-midnight
+ */
+function livesource_page_default (){
+    $query = new \Drupal\livesource\views\QueryBuilder();
+    $query->setRange(10);
+    $query->setPage(1);
+    $query->setDateFilter();
+    $query->setSort('date');
+    $query->setType('events');
+
+    $style = new \Drupal\livesource\views\MicrodataStyle($query);
+    $formatter = new \Drupal\livesource\views\EventFormatter($style);
+    $formatter->formattedResults();
+
+    $style = new \Drupal\livesource\views\DefaultStyle($query);
+    $formatter = new \Drupal\livesource\views\EventFormatter($style);
+    $results = $formatter->formattedResults();
+
+    $build = array();
+    $build['#type'] = 'container';
+    $build['#attached']['js'][] = drupal_get_path('module', 'livesource') . '/js/livesource-infinity.js';
+    $build['content']['#type'] = 'container';
+    $build['content']['events'] = $results;
+    $build['content']['#attributes']['class'] = 'livesource-infinity';
+    $build['loader'] = array('#markup' => theme('live_loader'));
+
+    return $build;
+}
+
+function livesource_preprocess_event__item(&$variables) {
+    $variables['image'] = $variables['elements']['#items']['image'];
+    $variables['title'] = $variables['elements']['#items']['title'];
+    $variables['date'] = $variables['elements']['#items']['date'];
+    $variables['url'] = $variables['elements']['#items']['url'];
+    $variables['venue']['name'] = $variables['elements']['#items']['venue']['name'];
+    $variables['venue']['url'] = $variables['elements']['#items']['venue']['url'];
+    $variables['venue']['location'] = $variables['elements']['#items']['venue']['location'];
+    $variables['artists'] = $variables['elements']['#items']['artists'];
+}
+
+/**
+ * Implements hook_preprocess_HOOK().
+ *
+ * @link https://www.drupal.org/node/337022
+ */
+function livesource_preprocess_node(&$variables) {
+    $node = $variables['node'];
+
+    // Create preprocess function per content type.
+    $function = __FUNCTION__ . '_' .$node->type;
+    if (function_exists($function)) {
+        $function($variables);
+    }
+}
+
+/**
+ * Implements hook_preprocess_HOOK_TYPE().
+ *
+ * @param $variables
+ * @see livesource_preprocess_node()
+ */
+function livesource_preprocess_node_artists(&$variables) {
+    $query = new \Drupal\livesource\views\QueryBuilder();
+    $query->setIdFilter('id', $variables['nid']);
+
+    $style = new \Drupal\livesource\views\ArtistStyle($query);
+    $formatter = new \Drupal\livesource\views\EventFormatter($style);
+    $results = $formatter->formattedResults();
+
+    $variables['image'] = $results['image'];
+    $variables['genres'] = $results['genres'];
+    $variables['social'] = $results['social'];
+    $variables['youtube'] = $results['youtube'];
+    $variables['about'] = $results['about'];
+
+    $query = new \Drupal\livesource\views\QueryBuilder();
+    $query->setIdFilter('artists.id', $variables['nid']);
+    $query->setType('artists')->setId($variables['nid']);
+    $query->setDateFilter();
+    $query->setSort('date');
+
+    $style = new \Drupal\livesource\views\ArtistEventsStyle($query);
+    $formatter = new \Drupal\livesource\views\EventFormatter($style);
+    $variables['events'] = $formatter->formattedResults();
+
+    $style = new \Drupal\livesource\views\MicrodataArtistStyle($query, $variables['node']);
+    $formatter = new \Drupal\livesource\views\EventFormatter($style);
+    $formatter->formattedResults();
+
+}
+
+/**
+ * Implements hook_preprocess_HOOK_TYPE().
+ *
+ * @param $variables
+ * @see livesource_preprocess_node()
+ */
+function livesource_preprocess_node_events(&$variables) {
+    $query = new \Drupal\livesource\views\QueryBuilder();
+    $query->setIdFilter('id', $variables['nid']);
+    $query->setType('events');
+
+    $style = new \Drupal\livesource\views\EventsStyle($query);
+    $formatter = new \Drupal\livesource\views\EventFormatter($style);
+    $variables['event'] = $formatter->formattedResults();
+
+
+    $style = new \Drupal\livesource\views\MicrodataStyle($query);
+    $formatter = new \Drupal\livesource\views\EventFormatter($style);
+    $formatter->formattedResults();
+}
+
+/**
+ * Implements hook_preprocess_HOOK_TYPE().
+ *
+ * @param $variables
+ * @see livesource_preprocess_node()
+ */
+function livesource_preprocess_node_venues(&$variables) {
+    $query = new \Drupal\livesource\views\QueryBuilder();
+    $query->setIdFilter('id', $variables['nid']);
+    $query->setType('venue')->setId($variables['nid']);
+
+    $style = new \Drupal\livesource\views\VenueStyle($query);
+    $formatter = new \Drupal\livesource\views\EventFormatter($style);
+    $results = $formatter->formattedResults();
+
+    $variables['name'] = $results['name'];
+    $variables['image'] = $results['image'];
+    $variables['address'] = $results['address'];
+    $variables['phone'] = $results['phone'];
+    $variables['social'] = $results['social'];
+    $variables['map'] = $results['map'];
+    $variables['about'] = $results['about'];
+
+    $query = new \Drupal\livesource\views\QueryBuilder();
+    $query->setIdFilter('venue', $variables['nid']);
+    $query->setType('venue')->setId($variables['nid']);
+    $query->setDateFilter();
+    $query->setSort('date');
+
+    $style = new \Drupal\livesource\views\VenueEventsStyle($query); //filter on 'venue'
+    $formatter = new \Drupal\livesource\views\EventFormatter($style);
+    $variables['events'] = $formatter->formattedResults();
+
+    $query = new \Drupal\livesource\views\QueryBuilder();
+    $query->setIdFilter('venue.id', $variables['nid']);
+    $query->setType('venue')->setId($variables['nid']);
+    $query->setDateFilter();
+    $query->setSort('date');
+
+    $style = new \Drupal\livesource\views\MicrodataVenueStyle($query, $variables['node']);//filter on 'venue.id'
+    $formatter = new \Drupal\livesource\views\EventFormatter($style);
+    $formatter->formattedResults();
+}
+
+/**
+ * Implements HOOK_theme()
+ * @link https://www.drupal.org/node/715160
+ *
+ * @param $existing
+ * @param $type
+ * @param $theme
+ * @param $path
+ * @return array
+ */
+function livesource_theme ($existing, $type, $theme, $path) {
+    $theme = array ();
+
+    $theme['node__events'] = array (
+        'render element' => 'content',
+        'base hook' => 'node',
+        'template' => 'node--events',
+        'path' => $path . '/templates'
+    );
+
+    $theme['node__artists'] = array (
+        'render element' => 'content',
+        'base hook' => 'node',
+        'template' => 'node--artists',
+        'path' => $path . '/templates'
+    );
+
+    $theme['node__venues'] = array (
+        'render element' => 'content',
+        'base hook' => 'node',
+        'template' => 'node--venues',
+        'path' => $path . '/templates'
+    );
+
+    $theme['taxonomy__genres'] = array(
+        'render element' => 'elements',
+        'template' => 'taxonomy--genres',
+        'path' => $path . '/templates'
+    );
+    
+    $theme['event__item'] = array(
+        'render element' => 'elements',
+        'template' => 'event--item',
+        'path' => $path . '/templates',
+    );
+
+    $theme['artists_event__item'] = array(
+        'render element' => 'elements',
+        'template' => 'artists-event--item',
+        'path' => $path . '/templates',
+    );
+
+    $theme['venues_event__item'] = array(
+        'variables' => array(),
+        'template' => 'venues-event--item',
+        'path' => $path . '/templates',
+    );
+
+    return $theme;
+}
+
+/**
+ * Implements hook_theme_registry_alter().
+ */
+function livesource_theme_registry_alter(&$theme_registry) {
+    $theme_registry['taxonomy_term']['template'] = 'taxonomy-term';
+    $theme_registry['taxonomy_term']['path'] = drupal_get_path('module', 'livesource') . '/templates';
+    $theme_registry['taxonomy_term']['theme path'] = drupal_get_path('module', 'livesource');
+}
+

@@ -1,0 +1,12 @@
+<?php
+/**
+ * Ad injector
+ */
+
+function liveads_theme() {
+    return array(
+        'liveads_ad' => array(
+            'template' => 'liveads-ad',
+        )
+    );
+}

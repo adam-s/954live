@@ -1,0 +1,58 @@
+<?php
+
+/**
+ * Implements HOOK_menu
+ */
+
+function live_pages_menu() {
+    $items['legal'] = array(
+        'title' => 'Legal',
+        'page callback' => 'live_pages_page',
+        'access arguments' => array('access content'),
+    );
+
+    $items['page-not-found'] = array(
+        'title' => 'Page not found',
+        'page callback' => 'live_pages_404',
+        'access arguments' => array('access content'),
+    );
+
+    return $items;
+}
+
+function live_pages_theme() {
+    return array(
+        'live_pages_legal' => array(
+            'template' => 'live_pages_legal',
+        ),
+        'live_pages_404' => array(
+            'template' => 'live_pages_404',
+        ),
+        'page__page_not_found' => array(
+            'template' => 'page--page-not-found',
+        ),
+    );
+}
+
+function live_pages_page() {
+    return theme('live_pages_legal');
+}
+
+function live_pages_404() {
+    $path = drupal_get_path('theme', 'live') . '/assets/954live-404.png';
+    $image_vars = array(
+        'path' => $path,
+        'alt' => '954live',
+        'title' => '954live',
+        'attributes' => array(
+            'class' => 'img-responsive',
+        ),
+    );
+    $image = theme_image($image_vars);
+
+    $variables = array(
+        'image' => $image,
+    );
+
+    return theme('live_pages_404', $variables);
+}

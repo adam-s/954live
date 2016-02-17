@@ -1,0 +1,10 @@
+<div ng-if="vm.result.id">
+    <div ng-switch="vm.result.bundle">
+        <div ng-switch-when="artists" class="artist">
+            <ng-include src="'src/app/results/artists.tpl.html'"></ng-include>
+        </div>
+        <div ng-switch-when="venues" class="venue">
+            <ng-include src="'src/app/results/venues.tpl.html'"></ng-include>
+        </div>
+    </div>
+</div>
